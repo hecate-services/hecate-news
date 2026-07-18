@@ -27,6 +27,7 @@
 -define(DEFAULT_MAX_SEEN, 4000).    %% bounded dedupe window
 -define(FETCH_TIMEOUT, 15000).
 -define(CONNECT_TIMEOUT, 10000).
+-define(READY_RETRY_MS, 5000).   %% re-check mesh readiness before the first poll
 -define(UA, "hecate-news/0.1 (+https://codeberg.org/hecate-services/hecate-news)").
 
 -record(st, {sources  = []      :: [map()],
@@ -51,12 +52,34 @@ init([]) ->
 handle_call(_Req, _From, St) -> {reply, {error, unknown_call}, St}.
 handle_cast(_Msg, St)        -> {noreply, St}.
 
+%% The FIRST poll waits for the mesh to be ready. hecate_om connects the macula
+%% client asynchronously, so a poll fired at boot would publish into a dark mesh
+%% (a no-op) AND mark those items seen — losing the whole seed until the next
+%% cycle. Retry every few seconds until the client + realm are up, THEN seed.
+handle_info(poll, #st{first = true} = St) ->
+    first_poll(mesh_ready(), St);
 handle_info(poll, St) ->
     St2 = poll_sources(St),
     erlang:send_after(St#st.poll_ms, self(), poll),
     {noreply, St2#st{first = false}};
 handle_info(_Info, St) ->
     {noreply, St}.
+
+first_poll(false, St) ->
+    erlang:send_after(?READY_RETRY_MS, self(), poll),
+    {noreply, St};
+first_poll(true, St) ->
+    St2 = poll_sources(St),
+    erlang:send_after(St#st.poll_ms, self(), poll),
+    {noreply, St2#st{first = false}}.
+
+%% The mesh is ready to carry a publish once the macula client pool and the realm
+%% are both up (mirrors hecate_news_facts:publish/2's own guard).
+mesh_ready() ->
+    case {hecate_om:macula_client(), hecate_om_identity:realm()} of
+        {{ok, _Pool}, {ok, _Realm}} -> true;
+        _NotYet                     -> false
+    end.
 
 terminate(_Reason, _St) -> ok.
 
