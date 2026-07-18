@@ -1,0 +1,44 @@
+{application, hecate_news, [
+    {description, "Sovereign news sensor: polls RSS/Atom sources and publishes news_item facts to the society feed"},
+    {vsn, "0.1.0"},
+    {registered, [hecate_news_sup]},
+    {mod, {hecate_news_app, []}},
+    {applications, [
+        kernel,
+        stdlib,
+        crypto,
+        %% HTTP client + TLS + XML parsing for fetching and reading feeds.
+        inets,
+        ssl,
+        xmerl,
+        %% Producer-only hecate_om service: mesh wiring, no reckon-db store.
+        hecate_om
+    ]},
+    {env, [
+        %% Sovereign-first default sources: EU public broadcasters and open
+        %% RSS/Atom. Each is #{name, url, lang}. Override wholesale with
+        %% ${HECATE_NEWS_FEEDS} ("name|url|lang,name|url|lang").
+        {sources, [
+            #{name => <<"france24">>,
+              url  => <<"https://www.france24.com/en/rss">>,
+              lang => <<"en">>},
+            #{name => <<"vrtnws">>,
+              url  => <<"https://www.vrt.be/vrtnws/nl.rss.articles.xml">>,
+              lang => <<"nl">>},
+            #{name => <<"dw">>,
+              url  => <<"https://rss.dw.com/rdf/rss-en-all">>,
+              lang => <<"en">>}
+        ]},
+        %% How often to poll every source, in ms. Override ${HECATE_NEWS_POLL_MS}.
+        {poll_ms, 300000},
+        %% Newest-N per source published on the FIRST poll (the rest are primed
+        %% as seen, not published). Override ${HECATE_NEWS_SEED_COUNT}.
+        {seed_count, 1},
+        %% Bounded dedupe window: how many recent item ids to remember so a poll
+        %% does not re-announce old news. Override ${HECATE_NEWS_MAX_SEEN}.
+        {max_seen, 4000}
+    ]},
+    {modules, []},
+    {licenses, ["Apache-2.0"]},
+    {links, [{"Codeberg", "https://codeberg.org/hecate-services/hecate-news"}]}
+]}.

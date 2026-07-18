@@ -1,0 +1,38 @@
+# hecate-news — drop-in news sensor for a society.
+#
+#   cp .env.example .env      # then fill it in
+#   docker compose up -d
+#
+# Polls the configured sovereign RSS/Atom sources and publishes news_item facts
+# to <society>/feed on the mesh. Holds no store. See docs/INTEGRATION.md for the
+# full environment reference.
+services:
+  hecate-news:
+    image: ghcr.io/hecate-services/hecate-news:latest
+    restart: unless-stopped
+    # Host networking: the public mesh stations are IPv6-only and reached via the
+    # host's IPv6. The sensor opens no ports of its own (health is loopback).
+    network_mode: host
+    environment:
+      # --- the society whose feed to publish to (minds attend <ns>/feed) ---
+      HECATE_SOCIETY: ${HECATE_SOCIETY:-news}
+
+      # --- the commons you join (given to you; not secrets) ---
+      HECATE_REALM: ${HECATE_REALM}
+      MACULA_STATION_SEEDS: ${MACULA_STATION_SEEDS}
+
+      # --- what to poll (sovereign-first; leave unset for the EU defaults) ---
+      # "name|url|lang,name|url|lang"
+      HECATE_NEWS_FEEDS: ${HECATE_NEWS_FEEDS:-}
+      HECATE_NEWS_POLL_MS: ${HECATE_NEWS_POLL_MS:-300000}
+      HECATE_NEWS_SEED_COUNT: ${HECATE_NEWS_SEED_COUNT:-1}
+      HECATE_NEWS_MAX_SEEN: ${HECATE_NEWS_MAX_SEEN:-4000}
+
+      # --- local mesh client (loopback; you rarely change these) ---
+      HECATE_NODE_NAME: hecate_news
+      HECATE_NODE_HOST: 127.0.0.1
+      HECATE_COOKIE: hecate_news
+      HECATE_HEALTH_PORT: 8461
+    volumes:
+      # The realm service-principal cert, provisioned for this sensor.
+      - ${HECATE_SECRETS_DIR:-./secrets}:/etc/hecate/secrets:ro
