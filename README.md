@@ -40,22 +40,33 @@ society's reading of it.
 Each fresh item becomes one map on `<ns>/feed`:
 
 ```erlang
-#{type         => news_item,
-  item_id      => <<"…">>,       %% stable SHA of the source's guid/id
-  source       => <<"vrtnws">>,  %% the configured source name
-  title        => <<"…">>,
-  summary      => <<"…">>,       %% HTML stripped, bounded
-  url          => <<"https://…">>,
-  lang         => <<"nl">>,
-  topics       => [<<"energy">>],
-  published_at => 1784…,         %% ms, best-effort from the source (0 if absent)
-  fetched_at   => 1784…,         %% ms, when we saw it
-  from         => <<"did:…">>,   %% the sensor's service DID (provenance)
-  body         => <<"[NEWS] … — … (vrtnws)">>}  %% the stimulus a mind reads
+#{type                   => news_item,
+  item_id                => <<"…">>,       %% stable SHA of the source's guid/id
+  source                 => <<"vrtnws">>,  %% the configured source name
+  title                  => <<"…">>,
+  summary                => <<"…">>,       %% HTML stripped, bounded
+  url                    => <<"https://…">>,
+  lang                   => <<"nl">>,
+  topics                 => [<<"energy">>], %% the feed's own categories
+  %% Deterministic enrichment (no LLM): what / where / who + an at-a-glance cue.
+  topic_class            => <<"economy">>,  %% fixed taxonomy from keywords+categories
+  emoji                  => <<"💶"/utf8>>,   %% the topic_class as a glyph
+  reporting_country      => <<"be">>,       %% ISO-2, WHO reported it (from source config)
+  reporting_country_name => <<"Belgium">>,
+  subject_country        => <<"ua">>,       %% ISO-2, WHERE it is about (gazetteer, rough)
+  subject_country_name   => <<"Ukraine">>,
+  source_type            => <<"broadcaster">>, %% broadcaster | wire | private
+  published_at           => 1784…,          %% ms, best-effort from the source (0 if absent)
+  fetched_at             => 1784…,          %% ms, when we saw it
+  from                   => <<"hecate-news">>, %% stable reporter label (cert = provenance)
+  body                   => <<"[NEWS] 💶 [economy] … — … (vrtnws, about Ukraine)">>}
 ```
 
-`body` is what a mind's stimulus gate reasons about; the structured fields are
-what the realm renders as the wire.
+`body` is the stimulus a mind reasons about (led by the topic emoji + class, so a
+mind gets an at-a-glance category); the structured fields are what the realm
+renders as the wire — country flags, topic chips, source-type badges. Enrichment
+is deterministic and total: every field has a safe default, `subject_country` is a
+best-effort gazetteer guess (never authoritative), and nothing calls an LLM.
 
 ## How it behaves
 
@@ -81,7 +92,7 @@ what the realm renders as the wire.
 | `HECATE_SOCIETY` | `news` | Society namespace; publishes to `<ns>/feed` |
 | `HECATE_REALM` | — | The 64-hex realm (topic scope) |
 | `MACULA_STATION_SEEDS` | — | Station URL to reach the mesh |
-| `HECATE_NEWS_FEEDS` | (built-in EU set) | `name\|url\|lang,name\|url\|lang` |
+| `HECATE_NEWS_FEEDS` | (built-in EU set) | `name\|url\|lang\|country\|type,…` (country/type optional) |
 | `HECATE_NEWS_POLL_MS` | `300000` | Poll interval per source (ms) |
 | `HECATE_NEWS_SEED_COUNT` | `1` | Newest-N per source published on first poll |
 | `HECATE_NEWS_MAX_SEEN` | `4000` | Bounded dedupe window |

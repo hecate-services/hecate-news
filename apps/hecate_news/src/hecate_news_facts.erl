@@ -45,29 +45,49 @@ item(Item) when is_map(Item) ->
     Title   = clip(mget(title, Item, <<>>), ?TITLE_MAX),
     Summary = clip(mget(summary, Item, <<>>), ?SUMMARY_MAX),
     Source  = mget(source, Item, <<"unknown">>),
-    Fact = #{type         => news_item,
-             item_id      => mget(item_id, Item, <<>>),
-             source       => Source,
-             title        => Title,
-             summary      => Summary,
-             url          => mget(url, Item, <<>>),
-             lang         => mget(lang, Item, <<"en">>),
-             topics       => mget(topics, Item, []),
-             published_at => mget(published_at, Item, 0),
-             fetched_at   => erlang:system_time(millisecond),
-             from         => ?REPORTER,
-             body         => body(Title, Summary, Source)},
+    Fact = #{type                   => news_item,
+             item_id                => mget(item_id, Item, <<>>),
+             source                 => Source,
+             title                  => Title,
+             summary                => Summary,
+             url                    => mget(url, Item, <<>>),
+             lang                   => mget(lang, Item, <<"en">>),
+             topics                 => mget(topics, Item, []),
+             %% Deterministic enrichment (enrich_item): what/where/who + a cue.
+             topic_class            => mget(topic_class, Item, <<"general">>),
+             emoji                  => mget(emoji, Item, <<"📰"/utf8>>),
+             reporting_country      => mget(reporting_country, Item, <<>>),
+             reporting_country_name => mget(reporting_country_name, Item, <<>>),
+             subject_country        => mget(subject_country, Item, <<>>),
+             subject_country_name   => mget(subject_country_name, Item, <<>>),
+             source_type            => mget(source_type, Item, <<"broadcaster">>),
+             published_at           => mget(published_at, Item, 0),
+             fetched_at             => erlang:system_time(millisecond),
+             from                   => ?REPORTER,
+             body                   => body(Item, Title, Summary, Source)},
     publish(feed_topic(), Fact).
 
 %% --- Internal ---
 
-%% The stimulus a mind reasons about: a compact, readable headline line. Only
-%% the title and source when there is no summary, so a mind is never handed an
-%% empty body (which its gate would drop).
-body(Title, <<>>, Source) ->
-    <<"[NEWS] ", Title/binary, " (", Source/binary, ")">>;
-body(Title, Summary, Source) ->
-    <<"[NEWS] ", Title/binary, " — ", Summary/binary, " (", Source/binary, ")">>.
+%% The stimulus a mind reasons about: a compact, readable headline line, led by
+%% the topic emoji + class so a mind gets an at-a-glance category, and tailed by
+%% the source and (when found) the subject country, so its take is grounded in
+%% place, not generic. A mind is never handed an empty body (its gate drops that).
+body(Item, Title, Summary, Source) ->
+    Emoji = mget(emoji, Item, <<"📰"/utf8>>),
+    Class = mget(topic_class, Item, <<"general">>),
+    <<"[NEWS] ", Emoji/binary, " [", Class/binary, "] ", Title/binary,
+      (dash(Summary))/binary, " (", Source/binary, (about(Item))/binary, ")">>.
+
+dash(<<>>)      -> <<>>;
+dash(Summary)   -> <<" — ", Summary/binary>>.
+
+%% "· about Ukraine" when the gazetteer placed the story, else nothing.
+about(Item) ->
+    subject_suffix(mget(subject_country_name, Item, <<>>)).
+
+subject_suffix(<<>>)   -> <<>>;
+subject_suffix(Name)   -> <<", about ", Name/binary>>.
 
 feed_topic() ->
     <<(namespace())/binary, "/feed">>.

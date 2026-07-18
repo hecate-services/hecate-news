@@ -16,18 +16,19 @@
     ]},
     {env, [
         %% Sovereign-first default sources: EU public broadcasters and open
-        %% RSS/Atom. Each is #{name, url, lang}. Override wholesale with
-        %% ${HECATE_NEWS_FEEDS} ("name|url|lang,name|url|lang").
+        %% RSS/Atom. Each is #{name, url, lang, country, type}. country is ISO-2
+        %% (the reporting country); type is broadcaster | wire | private. Override
+        %% wholesale with ${HECATE_NEWS_FEEDS} ("name|url|lang|country|type,...").
         {sources, [
             #{name => <<"france24">>,
               url  => <<"https://www.france24.com/en/rss">>,
-              lang => <<"en">>},
+              lang => <<"en">>, country => <<"fr">>, type => <<"broadcaster">>},
             #{name => <<"vrtnws">>,
               url  => <<"https://www.vrt.be/vrtnws/nl.rss.articles.xml">>,
-              lang => <<"nl">>},
+              lang => <<"nl">>, country => <<"be">>, type => <<"broadcaster">>},
             #{name => <<"dw">>,
               url  => <<"https://rss.dw.com/rdf/rss-en-all">>,
-              lang => <<"en">>}
+              lang => <<"en">>, country => <<"de">>, type => <<"broadcaster">>}
         ]},
         %% How often to poll every source, in ms. Override ${HECATE_NEWS_POLL_MS}.
         {poll_ms, 300000},

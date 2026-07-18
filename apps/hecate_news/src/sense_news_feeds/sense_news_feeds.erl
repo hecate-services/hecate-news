@@ -116,21 +116,10 @@ do_publish(<<>>, _Seen, _Item, _Source, St) ->
 do_publish(_Id, true, _Item, _Source, St) ->
     St;
 do_publish(Id, false, Item, Source, St) ->
-    _ = hecate_news_facts:item(enrich(Item, Source)),
+    _ = hecate_news_facts:item(enrich_item:enrich(Item, Source)),
     logger:info("[news] ~ts: ~ts",
                 [maps:get(name, Source, <<"?">>), maps:get(title, Item, <<>>)]),
     mark_seen(Id, St).
-
-%% The source names itself and its language; the parser stays source-agnostic.
-enrich(Item, Source) ->
-    Item#{source => maps:get(name, Source, <<"unknown">>),
-          lang   => source_lang(Item, Source)}.
-
-source_lang(Item, Source) ->
-    lang(maps:get(lang, Item, <<>>), Source).
-
-lang(<<>>, Source) -> maps:get(lang, Source, <<"en">>);
-lang(L, _Source)   -> L.
 
 id(Item) -> maps:get(item_id, Item, <<>>).
 
@@ -189,9 +178,20 @@ from_env(S) when is_list(S), S =/= "" ->
 from_env(_Unset) ->
     application:get_env(hecate_news, sources, []).
 
-to_source([Name, Url])       -> #{name => bin(Name), url => bin(Url), lang => <<"en">>};
-to_source([Name, Url, Lang]) -> #{name => bin(Name), url => bin(Url), lang => bin(Lang)};
-to_source(_Bad)              -> #{name => <<"?">>, url => <<>>, lang => <<"en">>}.
+%% Spec: "name|url|lang|country|type" — country (ISO-2) and type (broadcaster /
+%% wire / private) are optional; lang defaults en, and the derived enrichment
+%% fills the rest. Fewer fields degrade gracefully.
+to_source([Name, Url]) ->
+    #{name => bin(Name), url => bin(Url), lang => <<"en">>};
+to_source([Name, Url, Lang]) ->
+    #{name => bin(Name), url => bin(Url), lang => bin(Lang)};
+to_source([Name, Url, Lang, Cc]) ->
+    #{name => bin(Name), url => bin(Url), lang => bin(Lang), country => bin(Cc)};
+to_source([Name, Url, Lang, Cc, Type | _]) ->
+    #{name => bin(Name), url => bin(Url), lang => bin(Lang),
+      country => bin(Cc), type => bin(Type)};
+to_source(_Bad) ->
+    #{name => <<"?">>, url => <<>>, lang => <<"en">>}.
 
 bin(S) -> unicode:characters_to_binary(string:trim(S)).
 
